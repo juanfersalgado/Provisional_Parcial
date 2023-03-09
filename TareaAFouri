@@ -1,0 +1,342 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": []
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "source": [
+        "**Tarea sobre análisis de Fourier aplicada al sonido**\n",
+        "\n",
+        "Juan Fernando Salgado\n",
+        "\n",
+        "Tomás Isaza Roldán\n",
+        "\n",
+        "David Sebastián Gómez Pérez\n"
+      ],
+      "metadata": {
+        "id": "IEtsAmd6h98W"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Librerías \n",
+        "from IPython.display import Audio\n",
+        "import math\n",
+        "import numpy as np\n",
+        "from matplotlib import pyplot as plt\n",
+        "from scipy.io import wavfile\n",
+        "import pandas as pd\n",
+        "from google.colab import drive\n",
+        "from scipy.signal import find_peaks\n",
+        "from scipy.optimize import curve_fit\n"
+      ],
+      "metadata": {
+        "id": "jNHKsXdB__h1"
+      },
+      "execution_count": 44,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "**Punto 1)**"
+      ],
+      "metadata": {
+        "id": "7z2Ln0xRAE7R"
+      }
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "-hTL1H0N7cl3"
+      },
+      "outputs": [],
+      "source": [
+        "##drive.mount('/content/drive')\n",
+        "# Se lee el archivo para luego imprimir información\n",
+        "##audiofile_name = '/content/drive/MyDrive/Experimental 3/Tarea 1/Audio_tarea1.wav' \n",
+        "audiofile_name = '/content/Audio_tarea1.wav' \n",
+        "samplerate, audio_data = wavfile.read(audiofile_name)\n",
+        "tamdata = audio_data.size\n",
+        "duration = tamdata/samplerate\n",
+        "dt = duration/tamdata\n",
+        "\n",
+        "print('Frecuencia de muestreo =',samplerate,' Hz')   # Sample frequency\n",
+        "print('Número de muestras =',len(audio_data))   # Number of samples\n",
+        "print('Duración = %f s'  % duration)\n",
+        "print('Muestreo temporal = %f s' % dt)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "t = np.arange(0, len(audio_data)*1/samplerate,1/samplerate)\n",
+        "plt.plot(t,audio_data)\n",
+        "plt.rcParams[\"figure.figsize\"] = (8, 8)\n",
+        "plt.title('Nota piano')\n",
+        "plt.ylabel('a.u.')\n",
+        "plt.xlabel('t (s)')"
+      ],
+      "metadata": {
+        "id": "VsxydAQU7tZ-"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "**Punto 2)**"
+      ],
+      "metadata": {
+        "id": "8RTf5CRGAMxV"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Calculamos la TF\n",
+        "data_FFT = np.fft.fft(audio_data/len(audio_data))  #Transformada de la señal dividida entre el número de muestras\n",
+        "data_FFT = data_FFT[range(int(len(audio_data)/2))]  #Toma solo la mitad del arreglo de valores para omitir las frecuencias negativas\n",
+        "data_FFTmag = np.abs(data_FFT)  #Magnitud de la TF\n",
+        "\n",
+        "#Cálculo de las frecuencias correspondientes a cada valor de la transformada\n",
+        "index = np.arange(len(data_FFT))  #Arreglo de indices (0,1,2,3...) para los valores de data_FFT\n",
+        "duracion = len(audio_data)/samplerate\n",
+        "frecuencias = index/duracion\n",
+        "\n",
+        "#Hallamos los máximos de la frecuencia\n",
+        "Fmp, _ = find_peaks(data_FFTmag, threshold=0.1, distance=100, rel_height=0.5)  #Posiciones de los máximos encontrados\n",
+        "data_peaks = data_FFTmag[Fmp]  #Amplitudes correspondientes a cada máximo\n",
+        "freq_peaks = frecuencias[Fmp]  #Frecuencias correspondientes a cada máximo\n",
+        "\n",
+        "plt.plot(freq_peaks, data_peaks, '*')  #Puntos máximos\n",
+        "plt.plot(frecuencias, data_FFTmag, '-')  #Gráfico de los puntos de la amplitud de la transformada en función de la frecuencia\n",
+        "plt.xlabel('Frequency (Hz)')\n",
+        "plt.ylabel('Amplitude (a.u')\n",
+        "plt.title('Transformada de Fourier de la señal con armónicos')\n",
+        "plt.rcParams[\"figure.figsize\"] = (10, 7)\n",
+        "plt.show()\n",
+        "\n",
+        "print('Máximos de Frecuencia (Hz): ', freq_peaks)  #Lista con las frecuencias fundamentales y secundarias"
+      ],
+      "metadata": {
+        "id": "1-1Ne7yczdHQ"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "**Punto 3)**\n",
+        "\n",
+        "Se tiene que\n",
+        "\n",
+        "$$f_N=440 (2)^{N/12} [Hz]$$\n",
+        "Dado que la frecuencia fundamental de la nota del piano es de 523,251 Hz, entonces\n",
+        "\n",
+        "$$\\frac{f_N}{440}=(2)^{N/12}$$\n",
+        "$$\\log_2{\\frac{f_N}{440}}=\\frac{N}{12}$$\n",
+        "$$N=12\\log_2{\\frac{f_N}{440}}$$\n",
+        "$$N=12\\log_2{\\frac{523,251}{440}}=3$$\n",
+        "Luego, \n",
+        "\n",
+        "$$f_3=523,251  [Hz]$$\n",
+        "que corresponde al tercer semitono ascendente desde el La4 (A4), es decir, Do5 (C5)"
+      ],
+      "metadata": {
+        "id": "cgDF3ncMAgus"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "print('La nota más cercana a la frecuencia fundamental es Do5 (523.251 Hz) ')"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "DJpCK6sjASna",
+        "outputId": "819f2f75-e221-4ab6-fa23-39996d385507"
+      },
+      "execution_count": 48,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "La nota más cercana a la frecuencia fundamental es Do5 (523.251 Hz) \n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "**Punto 4)**\n",
+        "\n",
+        "De la ecuación para el decaimiento en la amplitud\n",
+        "\n",
+        "$$r(t)=r_0 e^{-\\frac{t}{\\tau}}$$\n",
+        "\n",
+        "Tomando logaritmo natural a ambos lados de la expresión\n",
+        "\n",
+        "$$\\ln{r(t)}=\\ln(r_0 e^{-\\frac{t}{\\tau}})=\\ln(r_0)-\\frac{t}{\\tau}$$\n"
+      ],
+      "metadata": {
+        "id": "h2hgIN1xFOpH"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Ajuste r(t)=r_O * e^(-T/t)  \n",
+        "peaks, _ = find_peaks(audio_data, threshold=1, distance=400, rel_height=0.5)\n",
+        "plt.plot(t, audio_data,'-')  #Gráfica de la señal\n",
+        "plt.plot(t[peaks], audio_data[peaks], '*')  #Gráfica de los máximos\n",
+        "\n",
+        "#Ajustamos los máximos a la exponencial decreciente\n",
+        "p = np.polyfit(t[peaks], np.log(audio_data[peaks]), 1)\n",
+        "b = p[1]  #intercepto\n",
+        "m = p[0]  #pendiente\n",
+        "r0 = np.exp(b)  #Parámetros de la exponencial del modelo\n",
+        "tau = -1/m\n",
+        "\n",
+        "fitted_audio = r0*np.exp(-1*t[peaks]/tau)  #Puntos del ajuste exponencial\n",
+        "print('r0 = ',r0, 'τ= ',tau)\n",
+        "\n",
+        "plt.plot(t[peaks], fitted_audio, 'r-')  #Gráfica del ajuste exponencial\n",
+        "plt.xlabel('Tiempo(s)')\n",
+        "plt.ylabel('Amplitud')\n",
+        "plt.show()"
+      ],
+      "metadata": {
+        "id": "tVEd8zRdFOMj"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Ecuación de regresión exponencial de la forma\n",
+        "\n",
+        "\n",
+        "$$r(t)=1420.697194310127e^{-2.752842774943t}$$"
+      ],
+      "metadata": {
+        "id": "0kOjta4IhDVa"
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "**Punto 5)**"
+      ],
+      "metadata": {
+        "id": "k2sFH_EEL9TU"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Frecuencias armónicas y su amplitud\n",
+        "lista = {'Frecuencia': freq_peaks, 'Amplitud':data_peaks }\n",
+        "FvA = pd.DataFrame(lista)\n",
+        "FvA"
+      ],
+      "metadata": {
+        "id": "RrjSscC0KhU_"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "**Punto 6)**"
+      ],
+      "metadata": {
+        "id": "jukvwdogOCsU"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "audio_synth = np.zeros(len(audio_data)) \n",
+        "\n",
+        "sum = np.zeros(len(audio_data)) \n",
+        "\n",
+        "for i in range(len(freq_peaks)):\n",
+        "  SS = np.zeros(len(audio_data))\n",
+        "  for j in range(len(audio_data)):\n",
+        "    SS[j] = data_peaks[i]*np.sin(2*np.pi * freq_peaks[i] * t[j])\n",
+        "  sum = sum+SS\n",
+        "\n",
+        "sum = sum/np.max(sum)\n",
+        "\n",
+        "for j in range(len(audio_data)):\n",
+        "  audio_synth[j] = (r0 * np.exp(-1*t[j]/tau)*sum[j])\n",
+        "\n",
+        "plt.plot(t, audio_synth, '-')\n",
+        "plt.xlabel('Tiempo(s)')\n",
+        "plt.ylabel('Amplitud')\n",
+        "plt.show()"
+      ],
+      "metadata": {
+        "id": "5IsNOl0PMdoh"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "wavfile.write(\"Señal Sintetizada\",11025, audio_synth)"
+      ],
+      "metadata": {
+        "id": "GXRv8d7kTjpv"
+      },
+      "execution_count": 52,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "Audio(audio_data, rate=11025)  #Audio original"
+      ],
+      "metadata": {
+        "id": "uT5CWQDEVNCl"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "Audio(audio_synth, rate=11025)  #Audio sintetizado"
+      ],
+      "metadata": {
+        "id": "eyv014A7Vgv2"
+      },
+      "execution_count": null,
+      "outputs": []
+    }
+  ]
+}
